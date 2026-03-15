@@ -1,0 +1,166 @@
+{
+  "version": "1.0",
+  "name": "general_demo",
+  "theme": "mpfc_paper_v1",
+  "figure": {
+    "title": "General CSV Demo",
+    "preset": "double-column",
+    "rows": 2,
+    "cols": 2,
+    "width_mm": 178.0,
+    "height_mm": 124.0,
+    "auto_height": true,
+    "dpi": 300
+  },
+  "data_slots": [
+    {
+      "slot_id": "line_slot",
+      "label": "Line data",
+      "description": "Frequency sweep data"
+    },
+    {
+      "slot_id": "bar_slot",
+      "label": "Bar data",
+      "description": "Category comparison data"
+    },
+    {
+      "slot_id": "heatmap_slot",
+      "label": "Heatmap data",
+      "description": "2D scalar grid data"
+    }
+  ],
+  "panels": [
+    {
+      "panel_id": "panel_1",
+      "title": "Measured vs Simulated",
+      "chart_type": "line",
+      "source_slot": "line_slot",
+      "x": "frequency_ghz",
+      "y": [
+        "measured_db",
+        "simulated_db"
+      ],
+      "series": "",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Magnitude (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 4.0,
+        "marker": "o",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_2",
+      "title": "Grouped Scatter",
+      "chart_type": "scatter",
+      "source_slot": "line_slot",
+      "x": "frequency_ghz",
+      "y": [
+        "measured_db"
+      ],
+      "series": "series_name",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Measured (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 4.0,
+        "marker": "D",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_3",
+      "title": "Category Comparison",
+      "chart_type": "bar",
+      "source_slot": "bar_slot",
+      "x": "category",
+      "y": [
+        "value_db"
+      ],
+      "series": "group",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Category",
+      "ylabel": "Value (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 4.0,
+        "marker": "o",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_4",
+      "title": "2D Heatmap",
+      "chart_type": "heatmap",
+      "source_slot": "heatmap_slot",
+      "x": "frequency_ghz",
+      "y": [],
+      "series": "",
+      "heatmap_y": "theta_deg",
+      "value": "gain_db",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Theta (deg)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": false,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 4.0,
+        "marker": "o",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    }
+  ]
+}
+

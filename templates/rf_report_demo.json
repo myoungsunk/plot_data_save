@@ -1,0 +1,176 @@
+{
+  "version": "1.0",
+  "name": "rf_report_demo",
+  "theme": "mpfc_paper_v1",
+  "figure": {
+    "title": "RF Measurement Demo",
+    "preset": "double-column",
+    "rows": 2,
+    "cols": 2,
+    "width_mm": 178.0,
+    "height_mm": 124.0,
+    "auto_height": true,
+    "dpi": 300
+  },
+  "data_slots": [
+    {
+      "slot_id": "cp_slot",
+      "label": "CP measurement",
+      "description": "CP S-parameter sweep"
+    },
+    {
+      "slot_id": "coupler_mag_slot",
+      "label": "Coupler magnitude",
+      "description": "Coupler magnitude measurement"
+    },
+    {
+      "slot_id": "coupler_phase_slot",
+      "label": "Coupler phase",
+      "description": "Coupler phase measurement"
+    },
+    {
+      "slot_id": "radiation_slot",
+      "label": "Radiation pattern",
+      "description": "RHCP phi=0 excerpt"
+    }
+  ],
+  "panels": [
+    {
+      "panel_id": "panel_1",
+      "title": "CP Port Response",
+      "chart_type": "line",
+      "source_slot": "cp_slot",
+      "x": "Freq [GHz]",
+      "y": [
+        "dB(S(1,1))_sim []",
+        "dB(S(4,1))_sim []"
+      ],
+      "series": "",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Magnitude (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 3.5,
+        "marker": "o",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_2",
+      "title": "Coupler Magnitude",
+      "chart_type": "line",
+      "source_slot": "coupler_mag_slot",
+      "x": "Freq [GHz]",
+      "y": [
+        "dB(S(Port2,Port1)) []",
+        "dB(S(Port2,Port1))_1 []"
+      ],
+      "series": "",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Magnitude (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 3.5,
+        "marker": "s",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_3",
+      "title": "Coupler Phase",
+      "chart_type": "line",
+      "source_slot": "coupler_phase_slot",
+      "x": "Freq [GHz]",
+      "y": [
+        "cang_deg(S(Port1,Port2)) [deg]",
+        "cang_deg(S(Port1,Port2))_1 [deg]"
+      ],
+      "series": "",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Frequency (GHz)",
+      "ylabel": "Phase (deg)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 3.5,
+        "marker": "^",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    },
+    {
+      "panel_id": "panel_4",
+      "title": "RHCP Radiation Pattern",
+      "chart_type": "line",
+      "source_slot": "radiation_slot",
+      "x": "Theta [deg]",
+      "y": [
+        "dB(RealizedGainLHCP) []",
+        "dB(RealizedGainRHCP) []"
+      ],
+      "series": "",
+      "heatmap_y": "",
+      "value": "",
+      "aggregation": "mean",
+      "filters": [],
+      "xlabel": "Theta (deg)",
+      "ylabel": "Realized Gain (dB)",
+      "xlim": {
+        "min": null,
+        "max": null
+      },
+      "ylim": {
+        "min": null,
+        "max": null
+      },
+      "show_legend": true,
+      "style_overrides": {
+        "line_width": 1.2,
+        "marker_size": 3.5,
+        "marker": "D",
+        "cmap": "viridis",
+        "show_colorbar": true
+      }
+    }
+  ]
+}
+

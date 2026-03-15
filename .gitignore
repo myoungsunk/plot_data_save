@@ -1,0 +1,13 @@
+.DS_Store
+.streamlit/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.swp
+*.swo
+build/
+dist/
+exports/
+
