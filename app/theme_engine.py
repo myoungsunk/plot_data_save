@@ -99,10 +99,10 @@ THEME_PRESETS: dict[str, dict[str, Any]] = {
             "loc": "lower left",
         },
         "axes_facecolor": "black",
-        "figure_facecolor": "black",
+        "figure_facecolor": "white",
         "spine_color": "#f2f2f2",
-        "text_color": "#f2f2f2",
-        "savefig_facecolor": "black",
+        "text_color": "black",
+        "savefig_facecolor": "white",
     },
 }
 
@@ -240,7 +240,10 @@ def build_report_figure(template: dict[str, Any], slot_tables: dict[str, LoadedT
 
 
 def render_placeholder(axis: Any, message: str) -> None:
-    axis.text(0.5, 0.5, message, ha="center", va="center", fontsize=9, transform=axis.transAxes)
+    facecolor = axis.get_facecolor()
+    luminance = 0.2126 * facecolor[0] + 0.7152 * facecolor[1] + 0.0722 * facecolor[2]
+    text_color = "white" if luminance < 0.5 else "black"
+    axis.text(0.5, 0.5, message, ha="center", va="center", fontsize=9, color=text_color, transform=axis.transAxes)
     axis.set_xticks([])
     axis.set_yticks([])
     for spine in axis.spines.values():

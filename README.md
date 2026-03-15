@@ -12,7 +12,7 @@ A local Streamlit app for building paper-ready plots from arbitrary CSV files wi
 - Export the same Matplotlib figure as `PNG`, `SVG`, and `PDF`
 - Start from bundled theme presets:
   - `mpfc_paper_v1`: serif typography, boxed axes, and paper-sized figure presets
-  - `mpfc_dark_v2`: dark background, bright grid, and a high-contrast palette inspired by the supplied screenshot
+  - `mpfc_dark_v2`: white figure background with a black plot area, bright grid, and a high-contrast palette inspired by the supplied screenshot
 
 ## Project Layout
 
@@ -61,7 +61,7 @@ The app exposes the most common styling controls directly in the UI, so you can 
 - Open `Figure Settings`
 - Change `Theme preset`
 - Choose `MPFC Paper v1` for the original paper-style light theme
-- Choose `MPFC Dark v2` for the black-background style with bright grid lines and high-contrast traces
+- Choose `MPFC Dark v2` for the white-page, black-plot-area style with bright grid lines and high-contrast traces
 
 ### Font family
 
