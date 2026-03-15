@@ -21,7 +21,7 @@ class ThemeEngineTests(unittest.TestCase):
         self.assertEqual(dark_rc["font.family"], "sans-serif")
         self.assertIn("Arial", dark_rc["font.sans-serif"])
         self.assertEqual(dark_rc["figure.facecolor"], "white")
-        self.assertEqual(dark_rc["axes.facecolor"], "black")
+        self.assertEqual(dark_rc["axes.facecolor"], "white")
 
     def test_figure_presets_resolve_dimensions(self) -> None:
         width_mm, height_mm = resolve_figure_dimensions({"preset": "double-column", "rows": 2, "cols": 2, "auto_height": True})
@@ -70,7 +70,7 @@ class ThemeEngineTests(unittest.TestCase):
         self.assertGreater(len(png_payload), 100)
         result.figure.clf()
 
-    def test_dark_theme_uses_white_page_and_dark_plot_area(self) -> None:
+    def test_dark_theme_uses_white_page_and_black_leading_line(self) -> None:
         template = default_template()
         template["theme"] = "mpfc_dark_v2"
         template["data_slots"][0]["slot_id"] = "line_slot"
@@ -101,7 +101,7 @@ class ThemeEngineTests(unittest.TestCase):
         first_line = axis.lines[0]
         self.assertEqual(first_line.get_color().lower(), theme["colors"][0].lower())
         self.assertEqual(first_line.get_marker(), theme["marker_cycle"][0])
-        self.assertEqual(axis.get_facecolor(), (0.0, 0.0, 0.0, 1.0))
+        self.assertEqual(axis.get_facecolor(), (1.0, 1.0, 1.0, 1.0))
         self.assertEqual(result.figure.get_facecolor(), (1.0, 1.0, 1.0, 1.0))
         result.figure.clf()
 
