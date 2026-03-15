@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import math
 from dataclasses import dataclass
 from typing import Any
 
@@ -13,7 +12,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import AutoMinorLocator
 
-from app.template_store import FIGURE_PRESETS, LoadedTable, ordered_unique, parse_optional_float
+from app.template_store import FIGURE_PRESETS, LoadedTable, ordered_unique
 
 
 MPFC_COLORS = [
@@ -78,12 +77,23 @@ def get_theme(theme_id: str) -> dict[str, Any]:
     return THEME_PRESETS.get(theme_id, THEME_PRESETS["mpfc_paper_v1"])
 
 
-def theme_rc_params(theme_id: str) -> dict[str, Any]:
+def parse_style_list(value: Any) -> list[str]:
+    if value in (None, ""):
+        return []
+    if isinstance(value, str):
+        return [item.strip() for item in value.split(",") if item.strip()]
+    if isinstance(value, (list, tuple)):
+        return [str(item).strip() for item in value if str(item).strip()]
+    return []
+
+
+def theme_rc_params(theme_id: str, font_family_override: str | list[str] | None = None) -> dict[str, Any]:
     theme = get_theme(theme_id)
     font_sizes = theme["font_sizes"]
+    font_family = parse_style_list(font_family_override) or theme["font_family"]
     return {
         "font.family": "serif",
-        "font.serif": theme["font_family"],
+        "font.serif": font_family,
         "axes.labelsize": font_sizes["axes_label"],
         "axes.titlesize": font_sizes["axes_title"],
         "xtick.labelsize": font_sizes["ticks"],
@@ -126,7 +136,9 @@ def build_report_figure(template: dict[str, Any], slot_tables: dict[str, LoadedT
     width_mm, height_mm = resolve_figure_dimensions(figure_cfg)
     messages: list[str] = []
 
-    with plt.rc_context(theme_rc_params(template.get("theme", "mpfc_paper_v1"))):
+    with plt.rc_context(
+        theme_rc_params(template.get("theme", "mpfc_paper_v1"), figure_cfg.get("font_family_override", ""))
+    ):
         figure, axes = plt.subplots(
             rows,
             cols,
@@ -276,6 +288,9 @@ def render_line_or_scatter(
     line_width = float(overrides.get("line_width", theme["line_width"]))
     marker_size = float(overrides.get("marker_size", theme["marker_size"]))
     forced_marker = overrides.get("marker") or None
+    marker_every = max(1, int(overrides.get("marker_every", 1) or 1))
+    line_colors = parse_style_list(overrides.get("line_colors", ""))
+    marker_colors = parse_style_list(overrides.get("marker_colors", ""))
 
     for index, (label, x_values, y_values) in enumerate(series):
         points = [(x, y) for x, y in zip(x_values, y_values) if x is not None and y is not None]
@@ -285,10 +300,22 @@ def render_line_or_scatter(
         if all(isinstance(value, (int, float)) for value in x_plot):
             paired = sorted(zip(x_plot, y_plot), key=lambda item: item[0])
             x_plot, y_plot = zip(*paired)
-        color = theme["colors"][index % len(theme["colors"])]
+        color = line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])]
+        marker_color = marker_colors[index % len(marker_colors)] if marker_colors else color
         marker = forced_marker or theme["marker_cycle"][index % len(theme["marker_cycle"])]
         if scatter:
-            axis.scatter(x_plot, y_plot, s=marker_size**2, color=color, marker=marker, label=label, linewidths=0.6)
+            if marker_every > 1:
+                sampled_points = list(zip(x_plot, y_plot))[::marker_every]
+                x_plot, y_plot = zip(*sampled_points)
+            axis.scatter(
+                x_plot,
+                y_plot,
+                s=marker_size**2,
+                color=marker_color,
+                marker=marker,
+                label=label,
+                linewidths=0.6,
+            )
         else:
             axis.plot(
                 x_plot,
@@ -297,8 +324,10 @@ def render_line_or_scatter(
                 marker=marker,
                 linewidth=line_width,
                 markersize=marker_size,
-                markerfacecolor=color,
+                markerfacecolor=marker_color,
+                markeredgecolor=marker_color,
                 markeredgewidth=0.0,
+                markevery=marker_every if marker_every > 1 else None,
                 label=label,
             )
 
@@ -312,6 +341,7 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
 
     overrides = panel.get("style_overrides", {})
     line_width = float(overrides.get("line_width", theme["line_width"]))
+    line_colors = parse_style_list(overrides.get("line_colors", ""))
 
     if series_column and len(y_columns) == 1:
         y_column = y_columns[0]
@@ -334,7 +364,7 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
                 heights,
                 width=width,
                 label=str(category),
-                color=theme["colors"][index % len(theme["colors"])],
+                color=line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])],
                 edgecolor="black",
                 linewidth=line_width * 0.5,
             )
@@ -353,7 +383,7 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
             heights,
             width=width,
             label=str(y_column),
-            color=theme["colors"][index % len(theme["colors"])],
+            color=line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])],
             edgecolor="black",
             linewidth=line_width * 0.5,
         )
@@ -404,6 +434,7 @@ def render_heatmap(axis: Any, figure: Any, rows: list[dict[str, Any]], table: Lo
 
 def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, Any]) -> None:
     font_sizes = theme["font_sizes"]
+    overrides = panel.get("style_overrides", {})
     x_label = panel.get("xlabel") or pretty_axis_label(panel.get("x", ""))
     if panel.get("chart_type") == "heatmap":
         y_default = panel.get("heatmap_y", "")
@@ -425,14 +456,38 @@ def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, A
     axis.tick_params(axis="both", which="minor", labelsize=font_sizes["ticks"], length=2, width=0.6)
 
     if panel.get("chart_type") != "heatmap":
+        show_major_grid = bool(overrides.get("show_major_grid", True))
+        show_minor_grid = bool(overrides.get("show_minor_grid", True))
+        major_grid_color = overrides.get("major_grid_color") or theme["grid"]["major_color"]
+        minor_grid_color = overrides.get("minor_grid_color") or theme["grid"]["minor_color"]
+        major_grid_linestyle = overrides.get("major_grid_linestyle") or theme["grid"]["major_linestyle"]
+        minor_grid_linestyle = overrides.get("minor_grid_linestyle") or theme["grid"]["minor_linestyle"]
         axis.set_axisbelow(True)
-        axis.grid(True, which="major", color=theme["grid"]["major_color"], linewidth=theme["grid"]["major_linewidth"], linestyle=theme["grid"]["major_linestyle"])
+        if show_major_grid:
+            axis.grid(
+                True,
+                which="major",
+                color=major_grid_color,
+                linewidth=theme["grid"]["major_linewidth"],
+                linestyle=major_grid_linestyle,
+            )
+        else:
+            axis.grid(False, which="major")
         try:
             axis.xaxis.set_minor_locator(AutoMinorLocator())
             axis.yaxis.set_minor_locator(AutoMinorLocator())
         except Exception:
             pass
-        axis.grid(True, which="minor", color=theme["grid"]["minor_color"], linewidth=theme["grid"]["minor_linewidth"], linestyle=theme["grid"]["minor_linestyle"])
+        if show_minor_grid:
+            axis.grid(
+                True,
+                which="minor",
+                color=minor_grid_color,
+                linewidth=theme["grid"]["minor_linewidth"],
+                linestyle=minor_grid_linestyle,
+            )
+        else:
+            axis.grid(False, which="minor")
 
     xlim = panel.get("xlim", {})
     ylim = panel.get("ylim", {})
@@ -459,4 +514,3 @@ def pretty_axis_label(label: str) -> str:
     if not label:
         return ""
     return label.replace("_", " ")
-

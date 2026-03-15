@@ -15,6 +15,8 @@ class ThemeEngineTests(unittest.TestCase):
         rc = theme_rc_params("mpfc_paper_v1")
         self.assertEqual(rc["font.family"], "serif")
         self.assertIn("Times New Roman", rc["font.serif"])
+        override_rc = theme_rc_params("mpfc_paper_v1", "Arial, DejaVu Sans")
+        self.assertEqual(override_rc["font.serif"][0], "Arial")
 
     def test_figure_presets_resolve_dimensions(self) -> None:
         width_mm, height_mm = resolve_figure_dimensions({"preset": "double-column", "rows": 2, "cols": 2, "auto_height": True})
@@ -23,6 +25,16 @@ class ThemeEngineTests(unittest.TestCase):
 
     def test_general_demo_renders_and_exports(self) -> None:
         template = load_template(ROOT / "templates" / "general_demo.json")
+        template["figure"]["font_family_override"] = "Arial, DejaVu Sans"
+        template["panels"][0]["style_overrides"].update(
+            {
+                "line_colors": "#112233,#445566",
+                "marker_colors": "#778899,#aabbcc",
+                "marker_every": 2,
+                "show_major_grid": False,
+                "show_minor_grid": False,
+            }
+        )
         slot_tables = {
             "line_slot": load_csv_table(ROOT / "sample_data" / "line_demo.csv"),
             "bar_slot": load_csv_table(ROOT / "sample_data" / "bar_demo.csv"),
@@ -30,6 +42,10 @@ class ThemeEngineTests(unittest.TestCase):
         }
         result = build_report_figure(template, slot_tables)
         self.assertEqual(result.messages, [])
+        first_line = result.figure.axes[0].lines[0]
+        self.assertEqual(first_line.get_color().lower(), "#112233")
+        self.assertEqual(first_line.get_markerfacecolor().lower(), "#778899")
+        self.assertEqual(first_line.get_markevery(), 2)
         for fmt in ["png", "svg", "pdf"]:
             payload = export_figure_bytes(result.figure, fmt, dpi=300)
             self.assertGreater(len(payload), 100)
@@ -52,4 +68,3 @@ class ThemeEngineTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-

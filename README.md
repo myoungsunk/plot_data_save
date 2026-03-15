@@ -50,6 +50,51 @@ A local Streamlit app for building paper-ready plots from arbitrary CSV files wi
 - Map the demo slots to the bundled CSV files in `sample_data/`
 - Preview the figure and export it as `PNG`, `SVG`, or `PDF`
 
+## Changing Plot Details
+
+The app exposes the most common styling controls directly in the UI, so you can change plot appearance without editing Python code.
+
+### Font family
+
+- Open `Figure Settings`
+- Edit `Font family override`
+- Enter one or more fonts separated by commas, for example `Times New Roman, Arial, DejaVu Serif`
+- If the first font is not installed, Matplotlib falls back to the next one in the list
+
+### Skip markers or reduce symbol density
+
+- Open the target panel in `Panels`
+- Change `Marker every N points`
+- Use `1` to draw a symbol on every point
+- Use `2`, `5`, `10`, and so on to keep the line but draw fewer symbols
+
+### Change line and symbol colors
+
+- Open the target panel in `Panels`
+- Enter colors in `Line colors` and `Marker colors`
+- Use comma-separated values such as `#000000, #e41a1c, royalblue`
+- If a panel contains multiple series, colors are assigned in order
+- Leave `Marker colors` empty to reuse the line colors for the symbols
+
+### Change x-axis and y-axis ranges
+
+- Open the target panel in `Panels`
+- Edit `X min`, `X max`, `Y min`, and `Y max`
+- Leave any field empty to keep automatic scaling
+
+### Change grid visibility and style
+
+- Open the target panel in `Panels`
+- Toggle `Show major grid` and `Show minor grid`
+- Set `Major grid color` and `Minor grid color` if you want custom colors
+- Choose `Major grid style` and `Minor grid style` from `-`, `--`, `:`, or `-.`
+- Leave the grid color fields empty to keep the default MPFC paper theme colors
+
+### Save your settings
+
+- Click `Save template to templates/` to reuse the same configuration later
+- Or click `Download template JSON` to export a portable template file
+
 ## Template Schema
 
 Templates are stored as JSON with this top-level structure:
@@ -64,7 +109,7 @@ Templates are stored as JSON with this top-level structure:
 }
 ```
 
-Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
+Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Style overrides include marker skipping, custom line and marker colors, and grid controls. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
 
 ## Running Tests
 
@@ -76,4 +121,3 @@ python3 -m unittest discover -s tests -v
 
 - The app prefers `pandas` for CSV ingestion when available and falls back to the standard library parser for testability.
 - The bundled RF example template uses reduced sample CSV excerpts copied from the supplied measurement files.
-

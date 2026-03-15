@@ -70,6 +70,7 @@ def default_figure_config() -> dict[str, Any]:
         "height_mm": 90.0,
         "auto_height": True,
         "dpi": 300,
+        "font_family_override": "",
     }
 
 
@@ -111,8 +112,17 @@ def default_panel(index: int, slot_id: str = "slot_1") -> dict[str, Any]:
             "line_width": 1.2,
             "marker_size": 4.0,
             "marker": "o",
+            "marker_every": 1,
+            "line_colors": "",
+            "marker_colors": "",
             "cmap": "viridis",
             "show_colorbar": True,
+            "show_major_grid": True,
+            "show_minor_grid": True,
+            "major_grid_color": "",
+            "minor_grid_color": "",
+            "major_grid_linestyle": "-",
+            "minor_grid_linestyle": ":",
         },
     }
 

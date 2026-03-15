@@ -244,10 +244,77 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     key=f"panel_marker_{index}",
                 )
             with style_cols[3]:
+                marker_every = st.number_input(
+                    "Marker every N points",
+                    min_value=1,
+                    max_value=500,
+                    value=int(style_defaults.get("marker_every", 1)),
+                    step=1,
+                    key=f"panel_marker_every_{index}",
+                )
+
+            color_cols = st.columns(3)
+            with color_cols[0]:
+                line_colors = st.text_input(
+                    "Line colors",
+                    value=str(style_defaults.get("line_colors", "")),
+                    key=f"panel_line_colors_{index}",
+                    help="Comma-separated colors such as #000000, #e41a1c, royalblue",
+                )
+            with color_cols[1]:
+                marker_colors = st.text_input(
+                    "Marker colors",
+                    value=str(style_defaults.get("marker_colors", "")),
+                    key=f"panel_marker_colors_{index}",
+                    help="Leave blank to reuse line colors.",
+                )
+            with color_cols[2]:
                 cmap = st.text_input(
                     "Heatmap colormap",
                     value=str(style_defaults.get("cmap", "viridis")),
                     key=f"panel_cmap_{index}",
+                )
+
+            grid_toggle_cols = st.columns(2)
+            with grid_toggle_cols[0]:
+                show_major_grid = st.checkbox(
+                    "Show major grid",
+                    value=bool(style_defaults.get("show_major_grid", True)),
+                    key=f"panel_major_grid_{index}",
+                )
+            with grid_toggle_cols[1]:
+                show_minor_grid = st.checkbox(
+                    "Show minor grid",
+                    value=bool(style_defaults.get("show_minor_grid", True)),
+                    key=f"panel_minor_grid_{index}",
+                )
+
+            grid_style_cols = st.columns(4)
+            with grid_style_cols[0]:
+                major_grid_color = st.text_input(
+                    "Major grid color",
+                    value=str(style_defaults.get("major_grid_color", "")),
+                    key=f"panel_major_grid_color_{index}",
+                )
+            with grid_style_cols[1]:
+                minor_grid_color = st.text_input(
+                    "Minor grid color",
+                    value=str(style_defaults.get("minor_grid_color", "")),
+                    key=f"panel_minor_grid_color_{index}",
+                )
+            with grid_style_cols[2]:
+                major_grid_linestyle = st.selectbox(
+                    "Major grid style",
+                    options=["-", "--", ":", "-."],
+                    index=choose_default(["-", "--", ":", "-."], str(style_defaults.get("major_grid_linestyle", "-"))),
+                    key=f"panel_major_grid_style_{index}",
+                )
+            with grid_style_cols[3]:
+                minor_grid_linestyle = st.selectbox(
+                    "Minor grid style",
+                    options=["-", "--", ":", "-."],
+                    index=choose_default(["-", "--", ":", "-."], str(style_defaults.get("minor_grid_linestyle", ":"))),
+                    key=f"panel_minor_grid_style_{index}",
                 )
 
             limit_cols = st.columns(4)
@@ -288,8 +355,17 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                         "line_width": line_width,
                         "marker_size": marker_size,
                         "marker": marker,
+                        "marker_every": int(marker_every),
+                        "line_colors": line_colors,
+                        "marker_colors": marker_colors,
                         "cmap": cmap,
                         "show_colorbar": show_colorbar,
+                        "show_major_grid": show_major_grid,
+                        "show_minor_grid": show_minor_grid,
+                        "major_grid_color": major_grid_color,
+                        "minor_grid_color": minor_grid_color,
+                        "major_grid_linestyle": major_grid_linestyle,
+                        "minor_grid_linestyle": minor_grid_linestyle,
                     },
                 }
             )
@@ -360,6 +436,11 @@ def main() -> None:
         with config_cols[3]:
             dpi = st.number_input("Raster export DPI", min_value=72, max_value=1200, value=int(figure.get("dpi", 300)), step=1)
             figure_title = st.text_input("Figure title", value=figure.get("title", ""))
+        font_family_override = st.text_input(
+            "Font family override",
+            value=figure.get("font_family_override", ""),
+            help="Comma-separated font family list. Example: Times New Roman, Arial, DejaVu Serif",
+        )
 
         width_mm, auto_height_mm = resolve_figure_dimensions({**figure, "preset": preset_id, "rows": rows, "cols": cols, "auto_height": True})
         size_cols = st.columns(2)
@@ -386,6 +467,7 @@ def main() -> None:
             "height_mm": float(auto_height_mm if auto_height else manual_height),
             "auto_height": bool(auto_height),
             "dpi": int(dpi),
+            "font_family_override": font_family_override,
         }
         template = resize_panels(template, template["figure"]["rows"] * template["figure"]["cols"])
 
@@ -456,4 +538,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
