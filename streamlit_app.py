@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import copy
+import math
 from pathlib import Path
 
 try:
@@ -33,6 +34,8 @@ from app.theme_engine import THEME_PRESETS, build_report_figure, export_figure_b
 
 
 COLOR_OPTION_CUSTOM = "__custom__"
+FONT_OPTION_CUSTOM = "__custom_font__"
+NUMERIC_OPTION_CUSTOM = "__custom_numeric__"
 COLOR_PRESET_OPTIONS = [
     ("#000000", "Black (#000000)"),
     ("#ff0000", "Red (#ff0000)"),
@@ -43,6 +46,14 @@ COLOR_PRESET_OPTIONS = [
     ("#ff7f00", "Orange (#ff7f00)"),
     ("#ff00ff", "Magenta (#ff00ff)"),
     ("#00cfe3", "Cyan (#00cfe3)"),
+]
+FONT_PRESET_OPTIONS = [
+    ("Times New Roman, Times, DejaVu Serif", "Times New Roman"),
+    ("Arial, Helvetica, DejaVu Sans", "Arial"),
+    ("Helvetica, Arial, DejaVu Sans", "Helvetica"),
+    ("Calibri, Arial, DejaVu Sans", "Calibri"),
+    ("DejaVu Serif", "DejaVu Serif"),
+    ("DejaVu Sans", "DejaVu Sans"),
 ]
 
 
@@ -133,6 +144,15 @@ def choose_default(option_list: list[str], current: str) -> int:
     return 0
 
 
+def build_mapped_slot_tables(template: dict, slot_file_map: dict[str, str], uploaded_tables: dict[str, LoadedTable]) -> dict[str, LoadedTable]:
+    mapped: dict[str, LoadedTable] = {}
+    for slot in template.get("data_slots", []):
+        mapped_name = slot_file_map.get(slot["slot_id"], "")
+        if mapped_name and mapped_name in uploaded_tables:
+            mapped[slot["slot_id"]] = uploaded_tables[mapped_name]
+    return mapped
+
+
 def color_option_values() -> list[str]:
     return [""] + [value for value, _label in COLOR_PRESET_OPTIONS] + [COLOR_OPTION_CUSTOM]
 
@@ -166,6 +186,188 @@ def resolve_color_selection(value: str | None) -> tuple[str, str]:
 
 def join_color_sequence(values: list[str]) -> str:
     return ", ".join([value.strip() for value in values if value.strip()])
+
+
+def font_option_values() -> list[str]:
+    return [""] + [value for value, _label in FONT_PRESET_OPTIONS] + [FONT_OPTION_CUSTOM]
+
+
+def format_font_option(value: str) -> str:
+    if value == "":
+        return "Theme default"
+    if value == FONT_OPTION_CUSTOM:
+        return "Custom"
+    for preset_value, preset_label in FONT_PRESET_OPTIONS:
+        if value == preset_value:
+            return preset_label
+    return value
+
+
+def resolve_font_selection(value: str | None) -> tuple[str, str]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return "", ""
+    for preset_value, _preset_label in FONT_PRESET_OPTIONS:
+        if normalized == preset_value:
+            return preset_value, ""
+    return FONT_OPTION_CUSTOM, normalized
+
+
+def render_font_selector(current_value: str, recommendation: str) -> str:
+    selected_option, custom_value = resolve_font_selection(current_value)
+    chosen_option = st.selectbox(
+        "Font family",
+        options=font_option_values(),
+        index=choose_default(font_option_values(), selected_option),
+        format_func=format_font_option,
+        key="figure_font_family_choice",
+    )
+    if recommendation:
+        st.caption(f"Adaptive font suggestion from mapped CSV labels: {format_font_option(recommendation)}")
+    if chosen_option == FONT_OPTION_CUSTOM:
+        return st.text_input(
+            "Font family custom",
+            value=custom_value,
+            key="figure_font_family_custom",
+            help="Examples: Times New Roman, Arial, DejaVu Serif",
+        ).strip()
+    return chosen_option
+
+
+def recommend_font_override(template: dict, slot_tables: dict[str, LoadedTable]) -> str:
+    for panel in template.get("panels", []):
+        table = slot_tables.get(panel.get("source_slot", ""))
+        x_column = panel.get("x", "")
+        if table is None or not x_column:
+            continue
+        if x_column not in table.numeric_columns:
+            labels = [str(row.get(x_column, "")) for row in table.rows if row.get(x_column) not in (None, "")]
+            if len(labels) >= 8 or max((len(label) for label in labels), default=0) >= 12:
+                return "Arial, Helvetica, DejaVu Sans"
+    return ""
+
+
+def parse_optional_int(text: str | None) -> int | None:
+    if text in (None, ""):
+        return None
+    try:
+        value = int(text)
+    except ValueError:
+        return None
+    return value if value > 0 else None
+
+
+def nice_step(value: float) -> float:
+    if value <= 0:
+        return 0.0
+    exponent = math.floor(math.log10(value))
+    fraction = value / (10**exponent)
+    if fraction <= 1:
+        nice_fraction = 1
+    elif fraction <= 2:
+        nice_fraction = 2
+    elif fraction <= 5:
+        nice_fraction = 5
+    else:
+        nice_fraction = 10
+    return nice_fraction * (10**exponent)
+
+
+def format_numeric_option(value: float | str | None) -> str:
+    if value in (None, ""):
+        return "Auto"
+    if value == NUMERIC_OPTION_CUSTOM:
+        return "Custom"
+    try:
+        return f"{float(value):g}"
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def collect_numeric_values(table: LoadedTable | None, column: str) -> list[float]:
+    if table is None or not column or column not in table.numeric_columns:
+        return []
+    return [float(row[column]) for row in table.rows if isinstance(row.get(column), (int, float))]
+
+
+def collect_panel_y_values(table: LoadedTable | None, y_columns: list[str]) -> list[float]:
+    if table is None:
+        return []
+    values: list[float] = []
+    for column in y_columns:
+        values.extend(collect_numeric_values(table, column))
+    return values
+
+
+def recommend_grid_steps(values: list[float]) -> list[str]:
+    if len(values) < 2:
+        return []
+    span = max(values) - min(values)
+    if span <= 0:
+        return []
+    recommended: list[str] = []
+    for divisor in [4.0, 6.0, 8.0]:
+        step = nice_step(span / divisor)
+        if step > 0:
+            label = f"{step:g}"
+            if label not in recommended:
+                recommended.append(label)
+    return recommended
+
+
+def recommended_minor_divisions(values: list[float]) -> int:
+    if len(values) >= 30:
+        return 5
+    if len(values) >= 12:
+        return 4
+    return 2
+
+
+def render_numeric_selector(label: str, key_prefix: str, current_value: float | int | None, recommendations: list[str]) -> float | None:
+    current_label = "" if current_value in (None, "") else f"{float(current_value):g}"
+    option_values = [""] + recommendations + [NUMERIC_OPTION_CUSTOM]
+    selected_option = current_label if current_label in recommendations else (NUMERIC_OPTION_CUSTOM if current_label else "")
+    chosen_option = st.selectbox(
+        label,
+        options=option_values,
+        index=choose_default(option_values, selected_option),
+        format_func=format_numeric_option,
+        key=f"{key_prefix}_choice",
+    )
+    if chosen_option == NUMERIC_OPTION_CUSTOM:
+        return parse_limit_value(
+            st.text_input(
+                f"{label} custom",
+                value=current_label,
+                key=f"{key_prefix}_custom",
+                help="Enter a positive numeric interval such as 0.05 or 5",
+            )
+        )
+    return parse_limit_value(chosen_option)
+
+
+def render_minor_division_selector(label: str, key_prefix: str, current_value: int | None, recommendation: int) -> int | None:
+    options = ["", "2", "4", "5", "10", NUMERIC_OPTION_CUSTOM]
+    current_label = "" if current_value in (None, "") else str(int(current_value))
+    selected_option = current_label if current_label in options else (NUMERIC_OPTION_CUSTOM if current_label else "")
+    chosen_option = st.selectbox(
+        label,
+        options=options,
+        index=choose_default(options, selected_option),
+        format_func=lambda value: "Auto" if value == "" else ("Custom" if value == NUMERIC_OPTION_CUSTOM else value),
+        key=f"{key_prefix}_choice",
+    )
+    st.caption(f"Adaptive suggestion: {recommendation} minor intervals")
+    if chosen_option == NUMERIC_OPTION_CUSTOM:
+        return parse_optional_int(
+            st.text_input(
+                f"{label} custom",
+                value=current_label,
+                key=f"{key_prefix}_custom",
+                help="Enter a positive integer such as 2, 4, or 5",
+            )
+        )
+    return parse_optional_int(chosen_option)
 
 
 def preserve_theme_numeric_override(value: float, theme_default: float) -> float | None:
@@ -311,6 +513,9 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                 )
                 heatmap_y = ""
                 value_column = ""
+
+            x_numeric_values = collect_numeric_values(bound_table, x_column)
+            y_numeric_values = [] if chart_type == "heatmap" else collect_panel_y_values(bound_table, y_columns)
 
             st.caption("Optional row filters")
             filter_count = st.number_input(
@@ -461,6 +666,56 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     key=f"panel_minor_grid_{index}",
                 )
 
+            x_major_step = style_defaults.get("x_major_step")
+            y_major_step = style_defaults.get("y_major_step")
+            x_minor_divisions = style_defaults.get("x_minor_divisions")
+            y_minor_divisions = style_defaults.get("y_minor_divisions")
+            if chart_type != "heatmap" and (x_numeric_values or y_numeric_values):
+                st.caption("Adaptive grid spacing options are generated from the selected CSV range.")
+                grid_step_cols = st.columns(4)
+                with grid_step_cols[0]:
+                    if x_numeric_values:
+                        x_major_step = render_numeric_selector(
+                            "X major step",
+                            f"panel_x_major_step_{index}",
+                            x_major_step,
+                            recommend_grid_steps(x_numeric_values),
+                        )
+                    else:
+                        st.caption("X major step: categorical axis")
+                with grid_step_cols[1]:
+                    if y_numeric_values:
+                        y_major_step = render_numeric_selector(
+                            "Y major step",
+                            f"panel_y_major_step_{index}",
+                            y_major_step,
+                            recommend_grid_steps(y_numeric_values),
+                        )
+                    else:
+                        st.caption("Y major step: no numeric y data")
+                with grid_step_cols[2]:
+                    if x_numeric_values:
+                        x_minor_divisions = render_minor_division_selector(
+                            "X minor per major",
+                            f"panel_x_minor_divisions_{index}",
+                            parse_optional_int(str(x_minor_divisions) if x_minor_divisions not in (None, "") else ""),
+                            recommended_minor_divisions(x_numeric_values),
+                        )
+                    else:
+                        st.caption("X minor grid: categorical axis")
+                with grid_step_cols[3]:
+                    if y_numeric_values:
+                        y_minor_divisions = render_minor_division_selector(
+                            "Y minor per major",
+                            f"panel_y_minor_divisions_{index}",
+                            parse_optional_int(str(y_minor_divisions) if y_minor_divisions not in (None, "") else ""),
+                            recommended_minor_divisions(y_numeric_values),
+                        )
+                    else:
+                        st.caption("Y minor grid: no numeric y data")
+            elif chart_type != "heatmap":
+                st.caption("Adaptive grid spacing appears when the selected CSV provides numeric axes.")
+
             grid_style_cols = st.columns(2)
             with grid_style_cols[0]:
                 major_grid_linestyle = st.selectbox(
@@ -518,6 +773,10 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                         "marker_size": preserve_theme_numeric_override(marker_size, theme_marker_size),
                         "marker": marker,
                         "marker_every": int(marker_every),
+                        "x_major_step": x_major_step,
+                        "y_major_step": y_major_step,
+                        "x_minor_divisions": x_minor_divisions,
+                        "y_minor_divisions": y_minor_divisions,
                         "line_colors": line_colors,
                         "marker_colors": marker_colors,
                         "cmap": cmap,
@@ -585,6 +844,9 @@ def main() -> None:
         template = apply_upload_autofill(template, uploaded_tables)
         st.rerun()
 
+    preview_slot_tables = build_mapped_slot_tables(template, st.session_state.slot_file_map, uploaded_tables)
+    font_recommendation = recommend_font_override(template, preview_slot_tables)
+
     with st.expander("Figure Settings", expanded=True):
         figure = copy.deepcopy(template["figure"])
         config_cols = st.columns(4)
@@ -609,11 +871,6 @@ def main() -> None:
         with config_cols[3]:
             dpi = st.number_input("Raster export DPI", min_value=72, max_value=1200, value=int(figure.get("dpi", 300)), step=1)
             figure_title = st.text_input("Figure title", value=figure.get("title", ""))
-        font_family_override = st.text_input(
-            "Font family override",
-            value=figure.get("font_family_override", ""),
-            help="Comma-separated font family list. Example: Times New Roman, Arial, DejaVu Serif",
-        )
 
         width_mm, auto_height_mm = resolve_figure_dimensions({**figure, "preset": preset_id, "rows": rows, "cols": cols, "auto_height": True})
         size_cols = st.columns(2)
@@ -628,6 +885,7 @@ def main() -> None:
                 step=1.0,
                 disabled=auto_height,
             )
+        font_family_override = render_font_selector(figure.get("font_family_override", ""), font_recommendation)
 
         template["name"] = template_name
         template["theme"] = theme_id

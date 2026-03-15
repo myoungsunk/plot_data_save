@@ -66,9 +66,10 @@ The app exposes the most common styling controls directly in the UI, so you can 
 ### Font family
 
 - Open `Figure Settings`
-- Edit `Font family override`
-- Enter one or more fonts separated by commas, for example `Times New Roman, Arial, DejaVu Serif`
-- If the first font is not installed, Matplotlib falls back to the next one in the list
+- Use `Font family` to choose `Theme default`, a preset font stack, or `Custom`
+- Preset options include `Times New Roman`, `Arial`, `Helvetica`, `Calibri`, `DejaVu Serif`, and `DejaVu Sans`
+- If you choose `Custom`, enter one or more fonts separated by commas such as `Times New Roman, Arial, DejaVu Serif`
+- The app also shows an adaptive font suggestion when mapped CSV labels look dense or long
 
 ### Skip markers or reduce symbol density
 
@@ -97,6 +98,9 @@ The app exposes the most common styling controls directly in the UI, so you can 
 
 - Open the target panel in `Panels`
 - Toggle `Show major grid` and `Show minor grid`
+- If the selected CSV uses numeric axes, the app shows adaptive grid spacing controls based on the current data range
+- Use `X major step` and `Y major step` to choose `Auto`, a recommended interval, or `Custom`
+- Use `X minor per major` and `Y minor per major` to control the number of minor grid intervals between major lines
 - Pick `Major grid color` and `Minor grid color` from preset options, or choose `Custom` to type your own color
 - Choose `Major grid style` and `Minor grid style` from `Theme default`, `-`, `--`, `:`, or `-.`
 - Leave the grid color fields empty to keep the active theme colors
@@ -120,7 +124,7 @@ Templates are stored as JSON with this top-level structure:
 }
 ```
 
-Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Style overrides include theme-aware line width, marker size, marker selection, marker skipping, custom line and marker colors, and grid controls. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
+Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Style overrides include theme-aware line width, marker size, marker selection, marker skipping, custom line and marker colors, adaptive major/minor grid spacing, and grid style controls. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
 
 ## Running Tests
 

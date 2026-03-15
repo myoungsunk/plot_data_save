@@ -105,6 +105,38 @@ class ThemeEngineTests(unittest.TestCase):
         self.assertEqual(result.figure.get_facecolor(), (1.0, 1.0, 1.0, 1.0))
         result.figure.clf()
 
+    def test_numeric_grid_steps_apply_to_axes(self) -> None:
+        template = default_template()
+        template["data_slots"][0]["slot_id"] = "line_slot"
+        template["panels"][0].update(
+            {
+                "title": "Grid Step Demo",
+                "source_slot": "line_slot",
+                "x": "frequency_ghz",
+                "y": ["measured_db"],
+            }
+        )
+        template["panels"][0]["style_overrides"].update(
+            {
+                "x_major_step": 0.2,
+                "y_major_step": 2.0,
+                "x_minor_divisions": 4,
+                "y_minor_divisions": 2,
+            }
+        )
+        slot_tables = {
+            "line_slot": load_csv_table(ROOT / "sample_data" / "line_demo.csv"),
+        }
+        result = build_report_figure(template, slot_tables)
+        axis = result.figure.axes[0]
+        x_ticks = axis.get_xticks()
+        y_ticks = axis.get_yticks()
+        self.assertGreaterEqual(len(x_ticks), 3)
+        self.assertGreaterEqual(len(y_ticks), 3)
+        self.assertAlmostEqual(x_ticks[1] - x_ticks[0], 0.2, places=6)
+        self.assertAlmostEqual(y_ticks[1] - y_ticks[0], 2.0, places=6)
+        result.figure.clf()
+
 
 if __name__ == "__main__":
     unittest.main()

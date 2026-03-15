@@ -10,9 +10,9 @@ matplotlib.use("Agg")
 
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.ticker import AutoMinorLocator
+from matplotlib.ticker import AutoMinorLocator, MultipleLocator
 
-from app.template_store import FIGURE_PRESETS, LoadedTable, ordered_unique
+from app.template_store import FIGURE_PRESETS, LoadedTable, ordered_unique, parse_optional_float
 
 
 MPFC_COLORS = [
@@ -135,6 +135,16 @@ def resolve_numeric_override(value: Any, default: float) -> float:
     if value in (None, ""):
         return float(default)
     return float(value)
+
+
+def parse_optional_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
 
 
 def theme_rc_params(theme_id: str, font_family_override: str | list[str] | None = None) -> dict[str, Any]:
@@ -267,7 +277,7 @@ def render_panel(axis: Any, figure: Any, table: LoadedTable, panel: dict[str, An
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
 
-    apply_common_axis_style(axis, panel, theme)
+    apply_common_axis_style(axis, panel, theme, table)
 
 
 def apply_filters(rows: list[dict[str, Any]], filters: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -505,7 +515,7 @@ def render_heatmap(
         colorbar.outline.set_edgecolor(theme.get("spine_color", "black"))
 
 
-def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, Any]) -> None:
+def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, Any], table: LoadedTable) -> None:
     font_sizes = theme["font_sizes"]
     overrides = panel.get("style_overrides", {})
     x_label = panel.get("xlabel") or pretty_axis_label(panel.get("x", ""))
@@ -529,6 +539,37 @@ def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, A
     axis.tick_params(axis="both", which="minor", labelsize=font_sizes["ticks"], length=2, width=0.6)
 
     if panel.get("chart_type") != "heatmap":
+        x_numeric = panel.get("x", "") in table.numeric_columns
+        y_candidates = [column for column in panel.get("y", []) if column]
+        y_numeric = bool(y_candidates) and all(column in table.numeric_columns for column in y_candidates)
+        x_major_step = parse_optional_float(overrides.get("x_major_step"))
+        y_major_step = parse_optional_float(overrides.get("y_major_step"))
+        x_minor_divisions = parse_optional_int(overrides.get("x_minor_divisions"))
+        y_minor_divisions = parse_optional_int(overrides.get("y_minor_divisions"))
+
+        if x_numeric and x_major_step and x_major_step > 0:
+            axis.xaxis.set_major_locator(MultipleLocator(x_major_step))
+        if y_numeric and y_major_step and y_major_step > 0:
+            axis.yaxis.set_major_locator(MultipleLocator(y_major_step))
+
+        try:
+            if x_numeric:
+                if x_major_step and x_minor_divisions:
+                    axis.xaxis.set_minor_locator(MultipleLocator(x_major_step / x_minor_divisions))
+                elif x_minor_divisions:
+                    axis.xaxis.set_minor_locator(AutoMinorLocator(x_minor_divisions))
+                else:
+                    axis.xaxis.set_minor_locator(AutoMinorLocator())
+            if y_numeric:
+                if y_major_step and y_minor_divisions:
+                    axis.yaxis.set_minor_locator(MultipleLocator(y_major_step / y_minor_divisions))
+                elif y_minor_divisions:
+                    axis.yaxis.set_minor_locator(AutoMinorLocator(y_minor_divisions))
+                else:
+                    axis.yaxis.set_minor_locator(AutoMinorLocator())
+        except Exception:
+            pass
+
         show_major_grid = bool(overrides.get("show_major_grid", True))
         show_minor_grid = bool(overrides.get("show_minor_grid", True))
         major_grid_color = overrides.get("major_grid_color") or theme["grid"]["major_color"]
@@ -546,11 +587,6 @@ def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, A
             )
         else:
             axis.grid(False, which="major")
-        try:
-            axis.xaxis.set_minor_locator(AutoMinorLocator())
-            axis.yaxis.set_minor_locator(AutoMinorLocator())
-        except Exception:
-            pass
         if show_minor_grid:
             axis.grid(
                 True,
