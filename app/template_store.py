@@ -436,3 +436,126 @@ def ordered_unique(values: list[Any], numeric: bool = False) -> list[Any]:
 
 def table_preview_rows(table: LoadedTable, limit: int = 5) -> list[dict[str, Any]]:
     return table.rows[:limit]
+
+
+def humanize_filename(name: str) -> str:
+    stem = Path(name).stem
+    text = re.sub(r"[_\-]+", " ", stem).strip()
+    return text or "Dataset"
+
+
+def infer_x_column(table: LoadedTable) -> str:
+    if not table.columns:
+        return ""
+    numeric = table.numeric_columns
+    if not numeric:
+        return table.columns[0]
+
+    priorities = [
+        "freq",
+        "frequency",
+        "time",
+        "theta",
+        "phi",
+        "angle",
+        "deg",
+        "ghz",
+        "hz",
+        "index",
+        "sample",
+    ]
+    scored: list[tuple[int, int, str]] = []
+    for idx, column in enumerate(numeric):
+        lower = column.lower()
+        score = 0
+        for rank, token in enumerate(priorities):
+            if token in lower:
+                score = max(score, 100 - rank)
+        if idx == 0:
+            score = max(score, 50)
+        scored.append((score, -idx, column))
+    scored.sort(reverse=True)
+    return scored[0][2]
+
+
+def suggest_panel_for_table(table: LoadedTable, slot_id: str, panel_index: int = 0) -> dict[str, Any]:
+    panel = default_panel(panel_index, slot_id=slot_id)
+    panel["source_slot"] = slot_id
+    panel["title"] = humanize_filename(table.name)
+
+    numeric = list(table.numeric_columns)
+    categorical = [column for column in table.columns if column not in numeric]
+
+    if len(numeric) >= 2:
+        x_column = infer_x_column(table)
+        y_candidates = [column for column in numeric if column != x_column]
+        panel["chart_type"] = "line"
+        panel["x"] = x_column
+        panel["y"] = y_candidates[: min(2, len(y_candidates))]
+        return panel
+
+    if len(numeric) == 1 and categorical:
+        panel["chart_type"] = "bar"
+        panel["x"] = categorical[0]
+        panel["y"] = [numeric[0]]
+        return panel
+
+    if len(table.columns) >= 2:
+        panel["chart_type"] = "line"
+        panel["x"] = table.columns[0]
+        panel["y"] = [table.columns[1]]
+        return panel
+
+    if table.columns:
+        panel["x"] = table.columns[0]
+    return panel
+
+
+def autofill_template_from_tables(
+    uploaded_tables: dict[str, LoadedTable],
+    template: dict[str, Any] | None = None,
+) -> tuple[dict[str, Any], dict[str, str]]:
+    if not uploaded_tables:
+        base = ensure_template_shape(template or default_template())
+        return base, {}
+
+    base = ensure_template_shape(template or default_template())
+    file_names = list(uploaded_tables.keys())
+    slots: list[dict[str, Any]] = []
+    slot_map: dict[str, str] = {}
+    seen_ids: set[str] = set()
+
+    for index, file_name in enumerate(file_names):
+        candidate = sanitize_filename(Path(file_name).stem) or f"slot_{index + 1}"
+        unique_id = candidate
+        suffix = 2
+        while unique_id in seen_ids:
+            unique_id = f"{candidate}_{suffix}"
+            suffix += 1
+        seen_ids.add(unique_id)
+        slots.append(
+            {
+                "slot_id": unique_id,
+                "label": humanize_filename(file_name),
+                "description": f"Auto-mapped from {file_name}",
+            }
+        )
+        slot_map[unique_id] = file_name
+
+    first_slot = slots[0]["slot_id"]
+    first_table = uploaded_tables[file_names[0]]
+    panel = suggest_panel_for_table(first_table, first_slot, panel_index=0)
+
+    base["name"] = sanitize_filename(Path(file_names[0]).stem)
+    base["figure"].update(
+        {
+            "rows": 1,
+            "cols": 1,
+            "preset": "single-column",
+            "auto_height": True,
+            "title": humanize_filename(file_names[0]),
+        }
+    )
+    base["data_slots"] = slots
+    base["panels"] = [panel]
+    return ensure_template_shape(base), slot_map

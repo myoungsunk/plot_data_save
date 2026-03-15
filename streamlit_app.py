@@ -14,6 +14,7 @@ from app.template_store import (
     FILTER_OPERATORS,
     FIGURE_PRESETS,
     LoadedTable,
+    autofill_template_from_tables,
     default_filter,
     default_template,
     ensure_template_shape,
@@ -36,16 +37,32 @@ def init_state() -> None:
         st.session_state.template = default_template()
     if "slot_file_map" not in st.session_state:
         st.session_state.slot_file_map = {}
+    if "autofill_enabled" not in st.session_state:
+        st.session_state.autofill_enabled = True
+    if "last_upload_signature" not in st.session_state:
+        st.session_state.last_upload_signature = ()
 
 
 def load_selected_template(template_path: Path) -> None:
     st.session_state.template = load_template(template_path)
     st.session_state.slot_file_map = {}
+    st.session_state.autofill_enabled = False
 
 
 def reset_template() -> None:
     st.session_state.template = default_template()
     st.session_state.slot_file_map = {}
+    st.session_state.autofill_enabled = True
+    st.session_state.last_upload_signature = ()
+
+
+def apply_upload_autofill(template: dict, uploaded_tables: dict[str, LoadedTable]) -> dict:
+    autofilled_template, slot_map = autofill_template_from_tables(uploaded_tables, template)
+    st.session_state.template = autofilled_template
+    st.session_state.slot_file_map = slot_map
+    st.session_state.autofill_enabled = False
+    st.session_state.last_upload_signature = tuple(uploaded_tables.keys())
+    return autofilled_template
 
 
 def parse_limit_value(text: str | None) -> float | None:
@@ -404,6 +421,7 @@ def main() -> None:
             if imported_template is not None:
                 st.session_state.template = load_template_bytes(imported_template.read())
                 st.session_state.slot_file_map = {}
+                st.session_state.autofill_enabled = False
                 st.rerun()
         if st.button("Reset to blank template", use_container_width=True):
             reset_template()
@@ -412,6 +430,15 @@ def main() -> None:
     template = ensure_template_shape(st.session_state.template)
     uploaded_tables = load_uploaded_tables()
     uploaded_names = list(uploaded_tables.keys())
+
+    if not uploaded_names:
+        st.session_state.last_upload_signature = ()
+    elif st.session_state.autofill_enabled and not st.session_state.last_upload_signature:
+        template = apply_upload_autofill(template, uploaded_tables)
+
+    if uploaded_tables and st.button("Auto-fill from uploaded CSVs", use_container_width=False):
+        template = apply_upload_autofill(template, uploaded_tables)
+        st.rerun()
 
     with st.expander("Figure Settings", expanded=True):
         figure = copy.deepcopy(template["figure"])
