@@ -29,6 +29,8 @@ class TemplateStoreTests(unittest.TestCase):
         self.assertEqual(template["figure"]["rows"], 1)
         self.assertEqual(len(template["data_slots"]), 1)
         self.assertEqual(len(template["panels"]), 1)
+        self.assertIsNone(template["panels"][0]["style_overrides"]["line_width"])
+        self.assertEqual(template["panels"][0]["style_overrides"]["marker"], "")
 
     def test_resize_helpers_keep_template_consistent(self) -> None:
         template = ensure_template_shape(default_template())

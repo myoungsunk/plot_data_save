@@ -30,6 +30,7 @@ MPFC_MARKERS = ["s", "o", "^", "D", "v", "P", "X", "*"]
 THEME_PRESETS: dict[str, dict[str, Any]] = {
     "mpfc_paper_v1": {
         "label": "MPFC Paper v1",
+        "font_mode": "serif",
         "font_family": ["Times New Roman", "Times", "DejaVu Serif"],
         "font_sizes": {
             "figure_title": 10.0,
@@ -54,12 +55,55 @@ THEME_PRESETS: dict[str, dict[str, Any]] = {
         "legend": {
             "facecolor": "white",
             "edgecolor": "black",
+            "labelcolor": "black",
             "framealpha": 1.0,
             "borderpad": 0.25,
+            "loc": "best",
         },
         "axes_facecolor": "white",
         "figure_facecolor": "white",
-    }
+        "spine_color": "black",
+        "text_color": "black",
+        "savefig_facecolor": "white",
+    },
+    "mpfc_dark_v2": {
+        "label": "MPFC Dark v2",
+        "font_mode": "sans-serif",
+        "font_family": ["Arial", "Helvetica", "DejaVu Sans"],
+        "font_sizes": {
+            "figure_title": 10.0,
+            "axes_title": 9.0,
+            "axes_label": 9.0,
+            "ticks": 8.0,
+            "legend": 7.5,
+        },
+        "line_width": 1.4,
+        "marker_size": 4.0,
+        "spine_width": 0.8,
+        "colors": ["#d8d8d8", "#ff453a", "#6aff2c", "#62b0ff", "#ffd60a"],
+        "marker_cycle": ["s", None, None, "^", "o"],
+        "grid": {
+            "major_color": "#cfcfcf",
+            "major_linewidth": 0.55,
+            "major_linestyle": "-",
+            "minor_color": "#8f8f8f",
+            "minor_linewidth": 0.4,
+            "minor_linestyle": "-",
+        },
+        "legend": {
+            "facecolor": "white",
+            "edgecolor": "#c0c0c0",
+            "labelcolor": "black",
+            "framealpha": 1.0,
+            "borderpad": 0.25,
+            "loc": "lower left",
+        },
+        "axes_facecolor": "black",
+        "figure_facecolor": "black",
+        "spine_color": "#f2f2f2",
+        "text_color": "#f2f2f2",
+        "savefig_facecolor": "black",
+    },
 }
 
 
@@ -87,13 +131,24 @@ def parse_style_list(value: Any) -> list[str]:
     return []
 
 
+def resolve_numeric_override(value: Any, default: float) -> float:
+    if value in (None, ""):
+        return float(default)
+    return float(value)
+
+
 def theme_rc_params(theme_id: str, font_family_override: str | list[str] | None = None) -> dict[str, Any]:
     theme = get_theme(theme_id)
     font_sizes = theme["font_sizes"]
     font_family = parse_style_list(font_family_override) or theme["font_family"]
+    font_mode = theme.get("font_mode", "serif")
+    spine_color = theme.get("spine_color", "black")
+    text_color = theme.get("text_color", "black")
+    savefig_facecolor = theme.get("savefig_facecolor", theme["figure_facecolor"])
     return {
-        "font.family": "serif",
-        "font.serif": font_family,
+        "font.family": font_mode,
+        "font.serif": font_family if font_mode == "serif" else ["DejaVu Serif"],
+        "font.sans-serif": font_family if font_mode == "sans-serif" else ["DejaVu Sans"],
         "axes.labelsize": font_sizes["axes_label"],
         "axes.titlesize": font_sizes["axes_title"],
         "xtick.labelsize": font_sizes["ticks"],
@@ -101,10 +156,16 @@ def theme_rc_params(theme_id: str, font_family_override: str | list[str] | None 
         "legend.fontsize": font_sizes["legend"],
         "axes.facecolor": theme["axes_facecolor"],
         "figure.facecolor": theme["figure_facecolor"],
-        "axes.edgecolor": "black",
+        "axes.edgecolor": spine_color,
+        "axes.labelcolor": text_color,
+        "axes.titlecolor": text_color,
         "xtick.direction": "out",
         "ytick.direction": "out",
-        "savefig.facecolor": "white",
+        "xtick.color": text_color,
+        "ytick.color": text_color,
+        "text.color": text_color,
+        "savefig.facecolor": savefig_facecolor,
+        "savefig.edgecolor": savefig_facecolor,
         "savefig.bbox": "tight",
     }
 
@@ -179,7 +240,6 @@ def build_report_figure(template: dict[str, Any], slot_tables: dict[str, LoadedT
 
 
 def render_placeholder(axis: Any, message: str) -> None:
-    axis.set_facecolor("white")
     axis.text(0.5, 0.5, message, ha="center", va="center", fontsize=9, transform=axis.transAxes)
     axis.set_xticks([])
     axis.set_yticks([])
@@ -200,7 +260,7 @@ def render_panel(axis: Any, figure: Any, table: LoadedTable, panel: dict[str, An
     elif chart_type == "bar":
         render_bar(axis, rows, table, panel, theme)
     elif chart_type == "heatmap":
-        render_heatmap(axis, figure, rows, table, panel)
+        render_heatmap(axis, figure, rows, table, panel, theme)
     else:
         raise ValueError(f"Unsupported chart type: {chart_type}")
 
@@ -285,8 +345,8 @@ def render_line_or_scatter(
 ) -> None:
     series = build_series(rows, panel)
     overrides = panel.get("style_overrides", {})
-    line_width = float(overrides.get("line_width", theme["line_width"]))
-    marker_size = float(overrides.get("marker_size", theme["marker_size"]))
+    line_width = resolve_numeric_override(overrides.get("line_width"), theme["line_width"])
+    marker_size = resolve_numeric_override(overrides.get("marker_size"), theme["marker_size"])
     forced_marker = overrides.get("marker") or None
     marker_every = max(1, int(overrides.get("marker_every", 1) or 1))
     line_colors = parse_style_list(overrides.get("line_colors", ""))
@@ -302,8 +362,10 @@ def render_line_or_scatter(
             x_plot, y_plot = zip(*paired)
         color = line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])]
         marker_color = marker_colors[index % len(marker_colors)] if marker_colors else color
-        marker = forced_marker or theme["marker_cycle"][index % len(theme["marker_cycle"])]
+        theme_marker = theme["marker_cycle"][index % len(theme["marker_cycle"])]
+        marker = forced_marker or theme_marker
         if scatter:
+            scatter_marker = marker or "o"
             if marker_every > 1:
                 sampled_points = list(zip(x_plot, y_plot))[::marker_every]
                 x_plot, y_plot = zip(*sampled_points)
@@ -312,7 +374,7 @@ def render_line_or_scatter(
                 y_plot,
                 s=marker_size**2,
                 color=marker_color,
-                marker=marker,
+                marker=scatter_marker,
                 label=label,
                 linewidths=0.6,
             )
@@ -340,7 +402,7 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
         raise ValueError("Bar charts require x and y selections.")
 
     overrides = panel.get("style_overrides", {})
-    line_width = float(overrides.get("line_width", theme["line_width"]))
+    line_width = resolve_numeric_override(overrides.get("line_width"), theme["line_width"])
     line_colors = parse_style_list(overrides.get("line_colors", ""))
 
     if series_column and len(y_columns) == 1:
@@ -365,7 +427,7 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
                 width=width,
                 label=str(category),
                 color=line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])],
-                edgecolor="black",
+                edgecolor=theme.get("spine_color", "black"),
                 linewidth=line_width * 0.5,
             )
         axis.set_xticks(positions)
@@ -384,14 +446,21 @@ def render_bar(axis: Any, rows: list[dict[str, Any]], table: LoadedTable, panel:
             width=width,
             label=str(y_column),
             color=line_colors[index % len(line_colors)] if line_colors else theme["colors"][index % len(theme["colors"])],
-            edgecolor="black",
+            edgecolor=theme.get("spine_color", "black"),
             linewidth=line_width * 0.5,
         )
     axis.set_xticks(positions)
     axis.set_xticklabels([str(item) for item in x_labels], rotation=0)
 
 
-def render_heatmap(axis: Any, figure: Any, rows: list[dict[str, Any]], table: LoadedTable, panel: dict[str, Any]) -> None:
+def render_heatmap(
+    axis: Any,
+    figure: Any,
+    rows: list[dict[str, Any]],
+    table: LoadedTable,
+    panel: dict[str, Any],
+    theme: dict[str, Any],
+) -> None:
     x_column = panel.get("x", "")
     y_column = panel.get("heatmap_y", "")
     value_column = panel.get("value", "")
@@ -429,7 +498,8 @@ def render_heatmap(axis: Any, figure: Any, rows: list[dict[str, Any]], table: Lo
     axis.set_yticklabels([str(value) for value in y_categories])
     if overrides.get("show_colorbar", True):
         colorbar = figure.colorbar(image, ax=axis, fraction=0.046, pad=0.04)
-        colorbar.ax.tick_params(labelsize=8)
+        colorbar.ax.tick_params(labelsize=8, colors=theme.get("text_color", "black"))
+        colorbar.outline.set_edgecolor(theme.get("spine_color", "black"))
 
 
 def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, Any]) -> None:
@@ -445,12 +515,12 @@ def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, A
     y_label = panel.get("ylabel") or pretty_axis_label(y_default)
 
     axis.set_title(panel.get("title", ""), fontsize=font_sizes["axes_title"], pad=4)
-    axis.set_xlabel(x_label, fontsize=font_sizes["axes_label"])
-    axis.set_ylabel(y_label, fontsize=font_sizes["axes_label"])
+    axis.set_xlabel(x_label, fontsize=font_sizes["axes_label"], color=theme.get("text_color", "black"))
+    axis.set_ylabel(y_label, fontsize=font_sizes["axes_label"], color=theme.get("text_color", "black"))
 
     for spine in axis.spines.values():
         spine.set_linewidth(theme["spine_width"])
-        spine.set_color("black")
+        spine.set_color(theme.get("spine_color", "black"))
 
     axis.tick_params(axis="both", which="major", labelsize=font_sizes["ticks"], length=3, width=0.8)
     axis.tick_params(axis="both", which="minor", labelsize=font_sizes["ticks"], length=2, width=0.6)
@@ -506,7 +576,8 @@ def apply_common_axis_style(axis: Any, panel: dict[str, Any], theme: dict[str, A
             framealpha=theme["legend"]["framealpha"],
             borderpad=theme["legend"]["borderpad"],
             fancybox=False,
-            loc="best",
+            loc=theme["legend"].get("loc", "best"),
+            labelcolor=theme["legend"].get("labelcolor", "black"),
         )
 
 

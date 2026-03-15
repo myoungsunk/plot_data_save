@@ -119,10 +119,15 @@ def choose_default(option_list: list[str], current: str) -> int:
     return 0
 
 
+def preserve_theme_numeric_override(value: float, theme_default: float) -> float | None:
+    return None if abs(float(value) - float(theme_default)) < 1e-9 else float(value)
+
+
 def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[dict]:
     panel_count = template["figure"]["rows"] * template["figure"]["cols"]
     working_template = resize_panels(template, panel_count)
     built_panels: list[dict] = []
+    active_theme = THEME_PRESETS.get(template.get("theme", "mpfc_paper_v1"), THEME_PRESETS["mpfc_paper_v1"])
 
     for index, panel in enumerate(working_template["panels"]):
         slot_ids = [slot["slot_id"] for slot in working_template["data_slots"]]
@@ -234,13 +239,17 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                 filters.append({"column": filter_column, "operator": filter_operator, "value": filter_value})
 
             style_defaults = panel.get("style_overrides", {})
+            theme_line_width = float(active_theme["line_width"])
+            theme_marker_size = float(active_theme["marker_size"])
+            theme_major_grid_linestyle = str(active_theme["grid"]["major_linestyle"])
+            theme_minor_grid_linestyle = str(active_theme["grid"]["minor_linestyle"])
             style_cols = st.columns(4)
             with style_cols[0]:
                 line_width = st.number_input(
                     "Line width",
                     min_value=0.2,
                     max_value=5.0,
-                    value=float(style_defaults.get("line_width", 1.2)),
+                    value=float(style_defaults.get("line_width", theme_line_width) or theme_line_width),
                     step=0.1,
                     key=f"panel_line_width_{index}",
                 )
@@ -249,15 +258,17 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     "Marker size",
                     min_value=1.0,
                     max_value=16.0,
-                    value=float(style_defaults.get("marker_size", 4.0)),
+                    value=float(style_defaults.get("marker_size", theme_marker_size) or theme_marker_size),
                     step=0.5,
                     key=f"panel_marker_size_{index}",
                 )
             with style_cols[2]:
+                marker_options = ["", "o", "s", "^", "D", "v", "P", "X", "*", "."]
                 marker = st.selectbox(
                     "Marker",
-                    options=["o", "s", "^", "D", "v", "P", "X", "*", "."],
-                    index=choose_default(["o", "s", "^", "D", "v", "P", "X", "*", "."], str(style_defaults.get("marker", "o"))),
+                    options=marker_options,
+                    index=choose_default(marker_options, str(style_defaults.get("marker") or "")),
+                    format_func=lambda value: "Theme default" if value == "" else value,
                     key=f"panel_marker_{index}",
                 )
             with style_cols[3]:
@@ -322,15 +333,17 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
             with grid_style_cols[2]:
                 major_grid_linestyle = st.selectbox(
                     "Major grid style",
-                    options=["-", "--", ":", "-."],
-                    index=choose_default(["-", "--", ":", "-."], str(style_defaults.get("major_grid_linestyle", "-"))),
+                    options=["", "-", "--", ":", "-."],
+                    index=choose_default(["", "-", "--", ":", "-."], str(style_defaults.get("major_grid_linestyle") or "")),
+                    format_func=lambda value: "Theme default" if value == "" else value,
                     key=f"panel_major_grid_style_{index}",
                 )
             with grid_style_cols[3]:
                 minor_grid_linestyle = st.selectbox(
                     "Minor grid style",
-                    options=["-", "--", ":", "-."],
-                    index=choose_default(["-", "--", ":", "-."], str(style_defaults.get("minor_grid_linestyle", ":"))),
+                    options=["", "-", "--", ":", "-."],
+                    index=choose_default(["", "-", "--", ":", "-."], str(style_defaults.get("minor_grid_linestyle") or "")),
+                    format_func=lambda value: "Theme default" if value == "" else value,
                     key=f"panel_minor_grid_style_{index}",
                 )
 
@@ -369,8 +382,8 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     "ylim": {"min": parse_limit_value(y_min), "max": parse_limit_value(y_max)},
                     "show_legend": show_legend,
                     "style_overrides": {
-                        "line_width": line_width,
-                        "marker_size": marker_size,
+                        "line_width": preserve_theme_numeric_override(line_width, theme_line_width),
+                        "marker_size": preserve_theme_numeric_override(marker_size, theme_marker_size),
                         "marker": marker,
                         "marker_every": int(marker_every),
                         "line_colors": line_colors,
@@ -381,8 +394,8 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                         "show_minor_grid": show_minor_grid,
                         "major_grid_color": major_grid_color,
                         "minor_grid_color": minor_grid_color,
-                        "major_grid_linestyle": major_grid_linestyle,
-                        "minor_grid_linestyle": minor_grid_linestyle,
+                        "major_grid_linestyle": "" if major_grid_linestyle == theme_major_grid_linestyle else major_grid_linestyle,
+                        "minor_grid_linestyle": "" if minor_grid_linestyle == theme_minor_grid_linestyle else minor_grid_linestyle,
                     },
                 }
             )
@@ -449,6 +462,7 @@ def main() -> None:
                 "Theme preset",
                 options=list(THEME_PRESETS.keys()),
                 index=choose_default(list(THEME_PRESETS.keys()), template.get("theme", "mpfc_paper_v1")),
+                format_func=lambda key: f"{THEME_PRESETS[key]['label']} ({key})",
             )
         with config_cols[1]:
             preset_id = st.selectbox(
@@ -560,7 +574,7 @@ def main() -> None:
             use_container_width=True,
         )
 
-    st.caption("Bundled figure presets: single-column, double-column, stacked-column.")
+    st.caption("Bundled themes: mpfc_paper_v1, mpfc_dark_v2. Bundled figure presets: single-column, double-column, stacked-column.")
 
 
 if __name__ == "__main__":

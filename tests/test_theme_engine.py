@@ -3,8 +3,8 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
-from app.template_store import load_csv_table, load_template
-from app.theme_engine import build_report_figure, export_figure_bytes, resolve_figure_dimensions, theme_rc_params
+from app.template_store import default_template, load_csv_table, load_template
+from app.theme_engine import build_report_figure, export_figure_bytes, get_theme, resolve_figure_dimensions, theme_rc_params
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -17,6 +17,10 @@ class ThemeEngineTests(unittest.TestCase):
         self.assertIn("Times New Roman", rc["font.serif"])
         override_rc = theme_rc_params("mpfc_paper_v1", "Arial, DejaVu Sans")
         self.assertEqual(override_rc["font.serif"][0], "Arial")
+        dark_rc = theme_rc_params("mpfc_dark_v2")
+        self.assertEqual(dark_rc["font.family"], "sans-serif")
+        self.assertIn("Arial", dark_rc["font.sans-serif"])
+        self.assertEqual(dark_rc["figure.facecolor"], "black")
 
     def test_figure_presets_resolve_dimensions(self) -> None:
         width_mm, height_mm = resolve_figure_dimensions({"preset": "double-column", "rows": 2, "cols": 2, "auto_height": True})
@@ -63,6 +67,41 @@ class ThemeEngineTests(unittest.TestCase):
         self.assertEqual(result.messages, [])
         png_payload = export_figure_bytes(result.figure, "png", dpi=300)
         self.assertGreater(len(png_payload), 100)
+        result.figure.clf()
+
+    def test_dark_theme_uses_dark_canvas_and_theme_defaults(self) -> None:
+        template = default_template()
+        template["theme"] = "mpfc_dark_v2"
+        template["data_slots"][0]["slot_id"] = "line_slot"
+        template["panels"][0].update(
+            {
+                "title": "Dark Demo",
+                "source_slot": "line_slot",
+                "x": "frequency_ghz",
+                "y": ["measured_db", "simulated_db"],
+            }
+        )
+        template["panels"][0]["style_overrides"].update(
+            {
+                "line_width": None,
+                "marker_size": None,
+                "marker": "",
+                "major_grid_linestyle": "",
+                "minor_grid_linestyle": "",
+            }
+        )
+        slot_tables = {
+            "line_slot": load_csv_table(ROOT / "sample_data" / "line_demo.csv"),
+        }
+        result = build_report_figure(template, slot_tables)
+        self.assertEqual(result.messages, [])
+        theme = get_theme("mpfc_dark_v2")
+        axis = result.figure.axes[0]
+        first_line = axis.lines[0]
+        self.assertEqual(first_line.get_color().lower(), theme["colors"][0].lower())
+        self.assertEqual(first_line.get_marker(), theme["marker_cycle"][0])
+        self.assertEqual(axis.get_facecolor(), (0.0, 0.0, 0.0, 1.0))
+        self.assertEqual(result.figure.get_facecolor(), (0.0, 0.0, 0.0, 1.0))
         result.figure.clf()
 
 

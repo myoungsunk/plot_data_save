@@ -10,13 +10,15 @@ A local Streamlit app for building paper-ready plots from arbitrary CSV files wi
 - Support `line`, `scatter`, `bar`, and `heatmap` panels
 - Save and reload JSON templates
 - Export the same Matplotlib figure as `PNG`, `SVG`, and `PDF`
-- Start from the bundled `mpfc_paper_v1` theme with serif typography, boxed axes, and paper-sized figure presets
+- Start from bundled theme presets:
+  - `mpfc_paper_v1`: serif typography, boxed axes, and paper-sized figure presets
+  - `mpfc_dark_v2`: dark background, bright grid, and a high-contrast palette inspired by the supplied screenshot
 
 ## Project Layout
 
 - `streamlit_app.py`: Streamlit UI
 - `app/template_store.py`: template schema, CSV loading, and dataset helpers
-- `app/theme_engine.py`: MPFC paper theme, figure rendering, and export helpers
+- `app/theme_engine.py`: theme presets, figure rendering, and export helpers
 - `templates/`: saved demo templates
 - `sample_data/`: demo CSV files
 - `tests/`: unit and smoke tests
@@ -54,6 +56,13 @@ A local Streamlit app for building paper-ready plots from arbitrary CSV files wi
 
 The app exposes the most common styling controls directly in the UI, so you can change plot appearance without editing Python code.
 
+### Change the overall default look
+
+- Open `Figure Settings`
+- Change `Theme preset`
+- Choose `MPFC Paper v1` for the original paper-style light theme
+- Choose `MPFC Dark v2` for the black-background style with bright grid lines and high-contrast traces
+
 ### Font family
 
 - Open `Figure Settings`
@@ -64,6 +73,7 @@ The app exposes the most common styling controls directly in the UI, so you can 
 ### Skip markers or reduce symbol density
 
 - Open the target panel in `Panels`
+- Set `Marker` to `Theme default` if you want the selected theme to decide the base marker style
 - Change `Marker every N points`
 - Use `1` to draw a symbol on every point
 - Use `2`, `5`, `10`, and so on to keep the line but draw fewer symbols
@@ -87,8 +97,8 @@ The app exposes the most common styling controls directly in the UI, so you can 
 - Open the target panel in `Panels`
 - Toggle `Show major grid` and `Show minor grid`
 - Set `Major grid color` and `Minor grid color` if you want custom colors
-- Choose `Major grid style` and `Minor grid style` from `-`, `--`, `:`, or `-.`
-- Leave the grid color fields empty to keep the default MPFC paper theme colors
+- Choose `Major grid style` and `Minor grid style` from `Theme default`, `-`, `--`, `:`, or `-.`
+- Leave the grid color fields empty to keep the active theme colors
 
 ### Save your settings
 
@@ -109,7 +119,7 @@ Templates are stored as JSON with this top-level structure:
 }
 ```
 
-Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Style overrides include marker skipping, custom line and marker colors, and grid controls. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
+Each panel stores chart settings, bound slot id, filters, axis labels and limits, and style overrides. Style overrides include theme-aware line width, marker size, marker selection, marker skipping, custom line and marker colors, and grid controls. Heatmaps add `heatmap_y` and `value` so the app can map CSV columns to a 2D matrix.
 
 ## Running Tests
 

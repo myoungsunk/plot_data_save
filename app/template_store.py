@@ -109,9 +109,9 @@ def default_panel(index: int, slot_id: str = "slot_1") -> dict[str, Any]:
         "ylim": {"min": None, "max": None},
         "show_legend": True,
         "style_overrides": {
-            "line_width": 1.2,
-            "marker_size": 4.0,
-            "marker": "o",
+            "line_width": None,
+            "marker_size": None,
+            "marker": "",
             "marker_every": 1,
             "line_colors": "",
             "marker_colors": "",
@@ -121,8 +121,8 @@ def default_panel(index: int, slot_id: str = "slot_1") -> dict[str, Any]:
             "show_minor_grid": True,
             "major_grid_color": "",
             "minor_grid_color": "",
-            "major_grid_linestyle": "-",
-            "minor_grid_linestyle": ":",
+            "major_grid_linestyle": "",
+            "minor_grid_linestyle": "",
         },
     }
 
