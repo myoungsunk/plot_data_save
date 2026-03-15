@@ -81,10 +81,11 @@ The app exposes the most common styling controls directly in the UI, so you can 
 ### Change line and symbol colors
 
 - Open the target panel in `Panels`
-- Enter colors in `Line colors` and `Marker colors`
-- Use comma-separated values such as `#000000, #e41a1c, royalblue`
-- If a panel contains multiple series, colors are assigned in order
-- Leave `Marker colors` empty to reuse the line colors for the symbols
+- Set `Line color mode` to `Choose colors` if you want to override the theme
+- Pick each line color from preset options such as `Black`, `Red`, `Green`, and `Blue`
+- Choose `Custom` for any slot if you want to type another color such as `yellow`, `royalblue`, or `#ffd400`
+- Set `Marker color mode` to `Reuse line colors` to keep markers matched to the lines
+- Or change `Marker color mode` to `Choose colors` and configure marker colors the same way
 
 ### Change x-axis and y-axis ranges
 
@@ -96,7 +97,7 @@ The app exposes the most common styling controls directly in the UI, so you can 
 
 - Open the target panel in `Panels`
 - Toggle `Show major grid` and `Show minor grid`
-- Set `Major grid color` and `Minor grid color` if you want custom colors
+- Pick `Major grid color` and `Minor grid color` from preset options, or choose `Custom` to type your own color
 - Choose `Major grid style` and `Minor grid style` from `Theme default`, `-`, `--`, `:`, or `-.`
 - Leave the grid color fields empty to keep the active theme colors
 

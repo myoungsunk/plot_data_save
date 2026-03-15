@@ -32,6 +32,20 @@ from app.template_store import (
 from app.theme_engine import THEME_PRESETS, build_report_figure, export_figure_bytes, resolve_figure_dimensions
 
 
+COLOR_OPTION_CUSTOM = "__custom__"
+COLOR_PRESET_OPTIONS = [
+    ("#000000", "Black (#000000)"),
+    ("#ff0000", "Red (#ff0000)"),
+    ("#00aa00", "Green (#00aa00)"),
+    ("#0000ff", "Blue (#0000ff)"),
+    ("#808080", "Gray (#808080)"),
+    ("#ffd400", "Yellow (#ffd400)"),
+    ("#ff7f00", "Orange (#ff7f00)"),
+    ("#ff00ff", "Magenta (#ff00ff)"),
+    ("#00cfe3", "Cyan (#00cfe3)"),
+]
+
+
 def init_state() -> None:
     if "template" not in st.session_state:
         st.session_state.template = default_template()
@@ -119,8 +133,104 @@ def choose_default(option_list: list[str], current: str) -> int:
     return 0
 
 
+def color_option_values() -> list[str]:
+    return [""] + [value for value, _label in COLOR_PRESET_OPTIONS] + [COLOR_OPTION_CUSTOM]
+
+
+def format_color_option(value: str, empty_label: str = "Theme default") -> str:
+    if value == "":
+        return empty_label
+    if value == COLOR_OPTION_CUSTOM:
+        return "Custom"
+    for preset_value, preset_label in COLOR_PRESET_OPTIONS:
+        if value.lower() == preset_value.lower():
+            return preset_label
+    return value
+
+
+def split_color_sequence(value: str | None) -> list[str]:
+    if not value:
+        return []
+    return [item.strip() for item in str(value).split(",") if item.strip()]
+
+
+def resolve_color_selection(value: str | None) -> tuple[str, str]:
+    normalized = str(value or "").strip()
+    if not normalized:
+        return "", ""
+    for preset_value, _preset_label in COLOR_PRESET_OPTIONS:
+        if normalized.lower() == preset_value.lower():
+            return preset_value, ""
+    return COLOR_OPTION_CUSTOM, normalized
+
+
+def join_color_sequence(values: list[str]) -> str:
+    return ", ".join([value.strip() for value in values if value.strip()])
+
+
 def preserve_theme_numeric_override(value: float, theme_default: float) -> float | None:
     return None if abs(float(value) - float(theme_default)) < 1e-9 else float(value)
+
+
+def render_palette_selector(
+    title: str,
+    key_prefix: str,
+    current_value: str,
+    slot_count: int = 4,
+    empty_label: str = "Unused",
+) -> str:
+    current_colors = split_color_sequence(current_value)
+    selected_colors: list[str] = []
+    palette_columns = st.columns(2)
+
+    for slot_index in range(slot_count):
+        current_color = current_colors[slot_index] if slot_index < len(current_colors) else ""
+        selected_option, custom_value = resolve_color_selection(current_color)
+        with palette_columns[slot_index % 2]:
+            chosen_option = st.selectbox(
+                f"{title} {slot_index + 1}",
+                options=color_option_values(),
+                index=choose_default(color_option_values(), selected_option),
+                format_func=lambda value, label=empty_label: format_color_option(value, label),
+                key=f"{key_prefix}_choice_{slot_index}",
+            )
+            if chosen_option == COLOR_OPTION_CUSTOM:
+                custom_color = st.text_input(
+                    f"{title} {slot_index + 1} custom",
+                    value=custom_value,
+                    key=f"{key_prefix}_custom_{slot_index}",
+                    help="Examples: yellow, royalblue, #ffd400",
+                )
+                if custom_color.strip():
+                    selected_colors.append(custom_color.strip())
+            elif chosen_option:
+                selected_colors.append(chosen_option)
+
+    return join_color_sequence(selected_colors)
+
+
+def render_single_color_selector(
+    label: str,
+    key_prefix: str,
+    current_value: str,
+    empty_label: str = "Theme default",
+) -> str:
+    selected_option, custom_value = resolve_color_selection(current_value)
+    chosen_option = st.selectbox(
+        label,
+        options=color_option_values(),
+        index=choose_default(color_option_values(), selected_option),
+        format_func=lambda value, empty=empty_label: format_color_option(value, empty),
+        key=f"{key_prefix}_choice",
+    )
+    if chosen_option == COLOR_OPTION_CUSTOM:
+        return st.text_input(
+            f"{label} custom",
+            value=custom_value,
+            key=f"{key_prefix}_custom",
+            help="Examples: yellow, lightgray, #cfcfcf",
+        ).strip()
+    return chosen_option
 
 
 def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[dict]:
@@ -281,20 +391,54 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     key=f"panel_marker_every_{index}",
                 )
 
+            line_color_mode = st.selectbox(
+                "Line color mode",
+                options=["theme", "custom"],
+                index=choose_default(["theme", "custom"], "custom" if str(style_defaults.get("line_colors", "")).strip() else "theme"),
+                format_func=lambda value: "Theme default" if value == "theme" else "Choose colors",
+                key=f"panel_line_color_mode_{index}",
+            )
+            line_color_slots = max(4, len(y_columns), len(split_color_sequence(str(style_defaults.get("line_colors", "")))))
+            line_colors = ""
+            if line_color_mode == "custom":
+                st.caption("Choose line colors from presets or select Custom to type a new one.")
+                line_colors = render_palette_selector(
+                    "Line color",
+                    f"panel_line_colors_{index}",
+                    str(style_defaults.get("line_colors", "")),
+                    slot_count=line_color_slots,
+                )
+
+            marker_color_mode = st.selectbox(
+                "Marker color mode",
+                options=["reuse", "custom"],
+                index=choose_default(["reuse", "custom"], "custom" if str(style_defaults.get("marker_colors", "")).strip() else "reuse"),
+                format_func=lambda value: "Reuse line colors" if value == "reuse" else "Choose colors",
+                key=f"panel_marker_color_mode_{index}",
+            )
+            marker_color_slots = max(4, len(y_columns), len(split_color_sequence(str(style_defaults.get("marker_colors", "")))))
+            marker_colors = ""
+            if marker_color_mode == "custom":
+                st.caption("Choose marker colors from presets or select Custom to type a new one.")
+                marker_colors = render_palette_selector(
+                    "Marker color",
+                    f"panel_marker_colors_{index}",
+                    str(style_defaults.get("marker_colors", "")),
+                    slot_count=marker_color_slots,
+                )
+
             color_cols = st.columns(3)
             with color_cols[0]:
-                line_colors = st.text_input(
-                    "Line colors",
-                    value=str(style_defaults.get("line_colors", "")),
-                    key=f"panel_line_colors_{index}",
-                    help="Comma-separated colors such as #000000, #e41a1c, royalblue",
+                major_grid_color = render_single_color_selector(
+                    "Major grid color",
+                    f"panel_major_grid_color_{index}",
+                    str(style_defaults.get("major_grid_color", "")),
                 )
             with color_cols[1]:
-                marker_colors = st.text_input(
-                    "Marker colors",
-                    value=str(style_defaults.get("marker_colors", "")),
-                    key=f"panel_marker_colors_{index}",
-                    help="Leave blank to reuse line colors.",
+                minor_grid_color = render_single_color_selector(
+                    "Minor grid color",
+                    f"panel_minor_grid_color_{index}",
+                    str(style_defaults.get("minor_grid_color", "")),
                 )
             with color_cols[2]:
                 cmap = st.text_input(
@@ -317,20 +461,8 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     key=f"panel_minor_grid_{index}",
                 )
 
-            grid_style_cols = st.columns(4)
+            grid_style_cols = st.columns(2)
             with grid_style_cols[0]:
-                major_grid_color = st.text_input(
-                    "Major grid color",
-                    value=str(style_defaults.get("major_grid_color", "")),
-                    key=f"panel_major_grid_color_{index}",
-                )
-            with grid_style_cols[1]:
-                minor_grid_color = st.text_input(
-                    "Minor grid color",
-                    value=str(style_defaults.get("minor_grid_color", "")),
-                    key=f"panel_minor_grid_color_{index}",
-                )
-            with grid_style_cols[2]:
                 major_grid_linestyle = st.selectbox(
                     "Major grid style",
                     options=["", "-", "--", ":", "-."],
@@ -338,7 +470,7 @@ def panel_editor(template: dict, slot_tables: dict[str, LoadedTable]) -> list[di
                     format_func=lambda value: "Theme default" if value == "" else value,
                     key=f"panel_major_grid_style_{index}",
                 )
-            with grid_style_cols[3]:
+            with grid_style_cols[1]:
                 minor_grid_linestyle = st.selectbox(
                     "Minor grid style",
                     options=["", "-", "--", ":", "-."],
